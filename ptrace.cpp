@@ -31,6 +31,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <cxxabi.h>
+
 PTrace::PTrace(const std::string& exe, const std::vector<std::string>& args)
     : m_exe(exe)
     , m_args(args)
@@ -171,6 +173,24 @@ void PTrace::exec()
     ptrace(PTRACE_CONT, m_child, NULL, NULL);
 }
 
+static std::string demangle(const char* function)
+{
+    if (!function) {
+        return {};
+    } else if (function[0] != '_' || function[1] != 'Z') {
+        return {function};
+    }
+
+    std::string ret;
+    int status = 0;
+    char* demangled = abi::__cxa_demangle(function, 0, 0, &status);
+    if (demangled) {
+        ret = demangled;
+        free(demangled);
+    }
+    return ret;
+}
+
 std::vector<PTrace::Backtrace> PTrace::fetchBacktrace()
 {
     int n = 0;
@@ -211,7 +231,7 @@ std::vector<PTrace::Backtrace> PTrace::fetchBacktrace()
         Backtrace bt;
         bt.ip = ip;
         bt.offset = off;
-        memcpy(bt.name, buf, 512);
+        bt.name = demangle(buf);
 
         backtrace.push_back(bt);
 

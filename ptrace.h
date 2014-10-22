@@ -43,7 +43,7 @@ protected:
     struct Backtrace {
         uint64_t ip;
         uint64_t offset;
-        char name[512];
+        std::string name;
     };
     std::vector<Backtrace> fetchBacktrace();
 
