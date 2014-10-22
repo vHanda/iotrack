@@ -45,6 +45,11 @@ protected:
 
     virtual void handleWrite(int ret, int fd, int size) {
         std::cout << "WRITE " << ret << " " << fd << " " << size << "\n";
+
+        auto bt = fetchBacktrace();
+        for (auto b : bt) {
+            std::cout << "  " << b.ip << " " << b.offset << " " << b.name << "\n";
+        }
     }
 };
 

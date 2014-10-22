@@ -44,8 +44,8 @@ PTrace::~PTrace()
 
 void PTrace::exec()
 {
-    pid_t child = fork();
-    if (child == 0) {
+    m_child = fork();
+    if (m_child == 0) {
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
 
         char* args[100];
@@ -56,6 +56,12 @@ void PTrace::exec()
             args[i + 2] = 0;
         }
         execvp(m_exe.c_str(), args);
+        return;
+    }
+
+    m_unw_as = unw_create_addr_space(&_UPT_accessors, 0);
+    if (!m_unw_as) {
+        fprintf(stderr, "ERROR: unw_create_addr_space failed.\n");
         return;
     }
 
@@ -72,18 +78,18 @@ void PTrace::exec()
             break;
         }
 
-        long orig_rax = ptrace(PTRACE_PEEKUSER, child, 8 * ORIG_RAX, NULL);
+        long orig_rax = ptrace(PTRACE_PEEKUSER, m_child, 8 * ORIG_RAX, NULL);
         if (orig_rax == SYS_write) {
             if (!inSysCall) {
                 user_regs_struct regs;
-                ptrace(PTRACE_GETREGS, child, NULL, &regs);
+                ptrace(PTRACE_GETREGS, m_child, NULL, &regs);
                 fd = regs.rdi;
                 size = regs.rdx;
 
                 inSysCall = true;
             }
             else {
-                int ret = ptrace(PTRACE_PEEKUSER, child, 8 * RAX, NULL);
+                int ret = ptrace(PTRACE_PEEKUSER, m_child, 8 * RAX, NULL);
                 inSysCall = false;
                 handleWrite(ret, fd, size);
             }
@@ -91,14 +97,14 @@ void PTrace::exec()
         else if (orig_rax == SYS_read) {
             if (!inSysCall) {
                 user_regs_struct regs;
-                ptrace(PTRACE_GETREGS, child, NULL, &regs);
+                ptrace(PTRACE_GETREGS, m_child, NULL, &regs);
                 fd = regs.rdi;
                 size = regs.rdx;
 
                 inSysCall = true;
             }
             else {
-                int ret = ptrace(PTRACE_PEEKUSER, child, 8 * RAX, NULL);
+                int ret = ptrace(PTRACE_PEEKUSER, m_child, 8 * RAX, NULL);
                 inSysCall = false;
                 handleRead(ret, fd, size);
             }
@@ -113,12 +119,12 @@ void PTrace::exec()
         else if (orig_rax == SYS_open) {
             if (!inSysCall) {
                 user_regs_struct regs;
-                ptrace(PTRACE_GETREGS, child, NULL, &regs);
+                ptrace(PTRACE_GETREGS, m_child, NULL, &regs);
 
                 long charAddr = regs.rdi;
                 filePath.clear();
                 while (1) {
-                    long word = ptrace(PTRACE_PEEKTEXT, child, charAddr, NULL);
+                    long word = ptrace(PTRACE_PEEKTEXT, m_child, charAddr, NULL);
                     char str[9];
                     strncpy(str, (char*)&word, 8);
 
@@ -139,7 +145,7 @@ void PTrace::exec()
                 inSysCall = true;
             }
             else {
-                long rax = ptrace(PTRACE_PEEKUSER, child, 8 * RAX, NULL);
+                long rax = ptrace(PTRACE_PEEKUSER, m_child, 8 * RAX, NULL);
                 inSysCall = false;
 
                 handleOpen(rax, filePath);
@@ -149,7 +155,7 @@ void PTrace::exec()
         else if (orig_rax == SYS_close) {
             if (!inSysCall) {
                 user_regs_struct regs;
-                ptrace(PTRACE_GETREGS, child, NULL, &regs);
+                ptrace(PTRACE_GETREGS, m_child, NULL, &regs);
 
                 fd = regs.rdi;
                 inSysCall = true;
@@ -160,7 +166,60 @@ void PTrace::exec()
             }
         }
 
-        ptrace(PTRACE_SYSCALL, child, NULL, NULL);
+        ptrace(PTRACE_SYSCALL, m_child, NULL, NULL);
     }
-    ptrace(PTRACE_CONT, child, NULL, NULL);
+    ptrace(PTRACE_CONT, m_child, NULL, NULL);
+}
+
+std::vector<PTrace::Backtrace> PTrace::fetchBacktrace()
+{
+    int n = 0;
+
+    void* ui = _UPT_create(m_child);
+
+    unw_cursor_t unw_c;
+    int ret = unw_init_remote(&unw_c, m_unw_as, ui);
+
+    if (ret < 0) {
+        _UPT_destroy(ui);
+        fprintf(stderr, "unw_init_remote failed (ret=%d).\n", ret);
+        return std::vector<Backtrace>();
+    }
+
+    std::vector<Backtrace> backtrace;
+
+    do {
+        unw_word_t ip;
+        if ((ret = unw_get_reg(&unw_c, UNW_REG_IP, &ip)) < 0) {
+            fprintf(stderr, "unw_get_reg failed (ret=%d).\n", ret);
+            break;
+        }
+
+        char buf[512];
+        buf[0] = '\0';
+
+        unw_word_t off;
+        if (unw_get_proc_name(&unw_c, buf, sizeof(buf), &off) != 0) {
+            break;
+        }
+
+        ret = unw_step(&unw_c);
+        if (ret < 0) {
+            //unw_get_reg(&unw_c, UNW_REG_IP, &ip);
+        }
+
+        Backtrace bt;
+        bt.ip = ip;
+        bt.offset = off;
+        memcpy(bt.name, buf, 512);
+
+        backtrace.push_back(bt);
+
+        if (++n > 64) {
+            break;
+        }
+    } while (ret > 0);
+
+    _UPT_destroy(ui);
+    return backtrace;
 }

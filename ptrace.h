@@ -23,6 +23,9 @@
 #include <string>
 #include <vector>
 
+#include <libunwind.h>
+#include <libunwind-ptrace.h>
+
 class PTrace
 {
 public:
@@ -37,9 +40,19 @@ protected:
     virtual void handleOpen(int ret, const std::string& path) = 0;
     virtual void handleClose(int fd) = 0;
 
+    struct Backtrace {
+        uint64_t ip;
+        uint64_t offset;
+        char name[512];
+    };
+    std::vector<Backtrace> fetchBacktrace();
+
 private:
     std::string m_exe;
     std::vector<std::string> m_args;
+
+    pid_t m_child;
+    unw_addr_space_t m_unw_as;
 };
 
 #endif // PTRACE_H
