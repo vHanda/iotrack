@@ -15,4 +15,9 @@ include(KDEFrameworkCompilerSettings)
 include(ECMInstallIcons)
 include(ECMAddTests)
 
+find_package(Qt5 REQUIRED NO_MODULE COMPONENTS Widgets)
+#find_package(KF5 REQUIRED COMPONENTS CoreAdd)
+
 add_subdirectory(generator)
+add_subdirectory(visualizer)
+
