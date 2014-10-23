@@ -112,11 +112,35 @@ void PTrace::exec()
             }
         }
         else if (orig_rax == SYS_pwrite64) {
-            // TODO: handle pwrite
+            if (!inSysCall) {
+                user_regs_struct regs;
+                ptrace(PTRACE_GETREGS, m_child, NULL, &regs);
+                fd = regs.rdi;
+                size = regs.rdx;
+
+                inSysCall = true;
+            }
+            else {
+                int ret = ptrace(PTRACE_PEEKUSER, m_child, 8 * RAX, NULL);
+                inSysCall = false;
+                handleWrite(ret, fd, size);
+            }
 
         }
         else if (orig_rax == SYS_pread64) {
-            // TODO: handle pread
+            if (!inSysCall) {
+                user_regs_struct regs;
+                ptrace(PTRACE_GETREGS, m_child, NULL, &regs);
+                fd = regs.rdi;
+                size = regs.rdx;
+
+                inSysCall = true;
+            }
+            else {
+                int ret = ptrace(PTRACE_PEEKUSER, m_child, 8 * RAX, NULL);
+                inSysCall = false;
+                handleRead(ret, fd, size);
+            }
         }
         else if (orig_rax == SYS_open) {
             if (!inSysCall) {
