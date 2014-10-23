@@ -24,6 +24,9 @@
 #include <QTreeView>
 #include <QFileInfo>
 #include <QSortFilterProxyModel>
+#include <QVBoxLayout>
+#include <QMainWindow>
+#include <QLineEdit>
 
 #include "functionsmodel.h"
 
@@ -41,8 +44,14 @@ int main(int argc, char** argv)
         parser.showHelp(1);
     }
 
-    QString fileName = args.first();
+    QWidget* mainWidget = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(mainWidget);
+    mainWidget->setLayout(layout);
 
+    QLineEdit* edit = new QLineEdit();
+    layout->addWidget(edit);
+
+    QString fileName = args.first();
     QTreeView* view = new QTreeView(0);
 
     FunctionsModel* model = new FunctionsModel(view);
@@ -50,10 +59,17 @@ int main(int argc, char** argv)
 
     QSortFilterProxyModel* sortModel = new QSortFilterProxyModel(view);
     sortModel->setSourceModel(model);
+    sortModel->setFilterKeyColumn(2);
 
     view->setModel(sortModel);
     view->setSortingEnabled(true);
-    view->show();
+
+    layout->addWidget(view);
+
+    QObject::connect(edit, SIGNAL(textChanged(QString)),
+                     sortModel, SLOT(setFilterFixedString(QString)));
+
+    mainWidget->show();
 
     return app.exec();
 }
