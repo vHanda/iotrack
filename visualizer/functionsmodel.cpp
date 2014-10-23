@@ -142,7 +142,7 @@ QVariant FunctionsModel::data(const QModelIndex& index, int role) const
         return QVariant();
     }
 
-    const QString function = m_functions.at(index.row());
+    QString function = m_functions.at(index.row());
     const QMap<QString, IOData> data = m_data.value(function);
 
     int totalRead = 0;
@@ -164,8 +164,12 @@ QVariant FunctionsModel::data(const QModelIndex& index, int role) const
         case 1:
             return totalWrite;
 
-        case 2:
-            return function;
+        case 2: {
+            QTextStream s(&function, QIODevice::ReadOnly);
+            int ip;
+            s >> ip;
+            return s.readAll();
+        }
     }
 
     return QVariant();
