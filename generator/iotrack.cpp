@@ -48,13 +48,15 @@ protected:
     }
 
     virtual void handleRead(int ret, int fd, int size) {
+        std::string bt = printBacktrace();
         m_ostream << "r " << ret << " " << fd << " " << size << "\n";
-        printBacktrace();
+        m_ostream << "bt " << bt << "\n";
     }
 
     virtual void handleWrite(int ret, int fd, int size) {
+        std::string bt = printBacktrace();
         m_ostream << "w " << ret << " " << fd << " " << size << "\n";
-        printBacktrace();
+        m_ostream << "bt " << bt << "\n";
     }
 
 private:
@@ -70,7 +72,7 @@ private:
         return it->second;
     }
 
-    void printBacktrace() {
+    std::string printBacktrace() {
         auto bt = fetchBacktrace();
 
         vector<int> backtraceIds;
@@ -80,11 +82,12 @@ private:
             backtraceIds.push_back(id);
         }
 
-        m_ostream << "bt ";
+        std::string output;
         for (int id : backtraceIds) {
-            m_ostream << id << " ";
+            output.append(std::to_string(id));
+            output.append(" ");
         }
-        m_ostream << "\n";
+        return output;
     }
 
     string m_outputFile;
