@@ -23,6 +23,8 @@
 
 #include <QTreeView>
 #include <QFileInfo>
+#include <QSortFilterProxyModel>
+
 #include "functionsmodel.h"
 
 int main(int argc, char** argv)
@@ -46,7 +48,11 @@ int main(int argc, char** argv)
     FunctionsModel* model = new FunctionsModel(view);
     model->setFilePath(QFileInfo(fileName).absoluteFilePath());
 
-    view->setModel(model);
+    QSortFilterProxyModel* sortModel = new QSortFilterProxyModel(view);
+    sortModel->setSourceModel(model);
+
+    view->setModel(sortModel);
+    view->setSortingEnabled(true);
     view->show();
 
     return app.exec();
