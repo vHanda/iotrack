@@ -96,12 +96,32 @@ private:
     unordered_map<string, int> m_strings;
 };
 
-int main(int, char**)
-{
-    std::vector<std::string> args;
-    args.push_back("fire");
+#include <QCoreApplication>
+#include <QCommandLineParser>
 
-    Trace trace("baloosearch", args, "iotrace.output");
+int main(int argc, char** argv)
+{
+    QCoreApplication app(argc, argv);
+
+    QCommandLineParser parser;
+    parser.addPositionalArgument(QStringLiteral("program"), QStringLiteral("The program to run along with its arguments"));
+    parser.addHelpOption();
+    parser.process(app);
+
+    QStringList args = parser.positionalArguments();
+    if (args.isEmpty()) {
+        parser.showHelp(1);
+    }
+
+    std::string program = args.takeFirst().toStdString();
+
+    std::vector<std::string> stdArgs;
+    for (const QString& arg : args) {
+        stdArgs.push_back(arg.toStdString());
+    }
+    std::string output = program + ".iotrack";
+
+    Trace trace(program, stdArgs, output);
     trace.exec();
 
     return 0;
