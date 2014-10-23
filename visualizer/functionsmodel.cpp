@@ -74,10 +74,17 @@ void FunctionsModel::setFilePath(const QString& filePath)
 
                 QString btLine = input.readLine();
                 QTextStream btStream(&btLine, QIODevice::ReadOnly);
+                QString btIndi;
+                btStream >> btIndi;
+                if (btIndi != QStringLiteral("bt")) {
+                    qDebug() << "Not a valid iotrace file";
+                    exit(1);
+                }
 
                 while (!btStream.atEnd()) {
                     QString fid;
                     btStream >> fid;
+
                     if (fid.isEmpty()) {
                         break;
                     }
@@ -97,10 +104,17 @@ void FunctionsModel::setFilePath(const QString& filePath)
 
                 QString btLine = input.readLine();
                 QTextStream btStream(&btLine, QIODevice::ReadOnly);
+                QString btIndi;
+                btStream >> btIndi;
+                if (btIndi != QStringLiteral("bt")) {
+                    qDebug() << "Not a valid iotrace file";
+                    exit(1);
+                }
 
                 while (!btStream.atEnd()) {
                     QString fid;
                     btStream >> fid;
+
                     if (fid.isEmpty()) {
                         break;
                     }
