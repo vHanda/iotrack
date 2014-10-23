@@ -21,44 +21,84 @@
 #include "ptrace.h"
 
 #include <iostream>
+#include <fstream>
+#include <unordered_map>
+
+using namespace std;
 
 class Trace : public PTrace
 {
 public:
-    Trace(const std::string& exe, const std::vector<std::string>& args)
+    Trace(const string& exe, const vector<string>& args,
+          const string& outputFile)
         : PTrace(exe, args)
+        , m_outputFile(outputFile)
     {
+        m_ostream.open(m_outputFile, ofstream::out | ofstream::trunc);
     }
 
 protected:
-    virtual void handleOpen(int ret, const std::string& path) {
-        std::cout << "OPEN " << ret << " " << path << "\n";
+    virtual void handleOpen(int ret, const string& path) {
+        int id = stringId(path);
+        m_ostream << "o " << ret << " " << id << "\n";
     }
 
     virtual void handleClose(int fd) {
-        std::cout << "CLOSE " << fd << "\n";
+        m_ostream << "c " << fd << "\n";
     }
 
     virtual void handleRead(int ret, int fd, int size) {
-        std::cout << "READ " << ret << " " << fd << " " << size << "\n";
+        m_ostream << "r " << ret << " " << fd << " " << size << "\n";
+        printBacktrace();
     }
 
     virtual void handleWrite(int ret, int fd, int size) {
-        std::cout << "WRITE " << ret << " " << fd << " " << size << "\n";
-
-        auto bt = fetchBacktrace();
-        for (auto b : bt) {
-            std::cout << "  " << b.ip << " " << b.offset << " " << b.name << "\n";
-        }
+        m_ostream << "w " << ret << " " << fd << " " << size << "\n";
+        printBacktrace();
     }
+
+private:
+    int stringId(const string& str) {
+        auto it = m_strings.find(str);
+        if (it == m_strings.end()) {
+            int id = m_strings.size();
+            m_strings.insert(make_pair(str, id));
+            m_ostream << "s " << id << " " << str << "\n";
+            return id;
+        }
+
+        return it->second;
+    }
+
+    void printBacktrace() {
+        auto bt = fetchBacktrace();
+
+        vector<int> backtraceIds;
+        for (const auto& b : bt) {
+            string s = to_string(b.ip) + " " + b.name;
+            int id = stringId(s);
+            backtraceIds.push_back(id);
+        }
+
+        m_ostream << "bt ";
+        for (int id : backtraceIds) {
+            m_ostream << id << " ";
+        }
+        m_ostream << "\n";
+    }
+
+    string m_outputFile;
+    ofstream m_ostream;
+
+    unordered_map<string, int> m_strings;
 };
 
 int main(int, char**)
 {
     std::vector<std::string> args;
-    args.push_back("-l");
+    args.push_back("fire");
 
-    Trace trace("ls", args);
+    Trace trace("baloosearch", args, "iotrace.output");
     trace.exec();
 
     return 0;
