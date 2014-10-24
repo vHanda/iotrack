@@ -60,6 +60,7 @@ int main(int argc, char** argv)
     QSortFilterProxyModel* sortModel = new QSortFilterProxyModel(view);
     sortModel->setSourceModel(model);
     sortModel->setFilterKeyColumn(2);
+    sortModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
 
     view->setModel(sortModel);
     view->setSortingEnabled(true);
